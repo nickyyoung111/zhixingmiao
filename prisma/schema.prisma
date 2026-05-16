@@ -1,0 +1,393 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum EnergyLevel {
+  LOW    @map("low")
+  MEDIUM @map("medium")
+  HIGH   @map("high")
+}
+
+enum GoalHorizon {
+  WEEK     @map("week")
+  MONTH    @map("month")
+  SEMESTER @map("semester")
+}
+
+enum GoalStatus {
+  ACTIVE   @map("active")
+  PAUSED   @map("paused")
+  ARCHIVED @map("archived")
+}
+
+enum CatPersona {
+  ZHIXING   @map("zhixing")
+  ENCOURAGE @map("encourage")
+  COMFORT   @map("comfort")
+}
+
+enum AiProvider {
+  MOCK     @map("mock")
+  DEEPSEEK @map("deepseek")
+  QWEN     @map("qwen")
+}
+
+enum EvidenceCategory {
+  ACTION_COMPLETED  @map("action_completed")
+  PRACTICE          @map("practice")
+  MOOD_SUPPORT      @map("mood_support")
+  SCENARIO_PRACTICE @map("scenario_practice")
+  REWARD_CLAIMED    @map("reward_claimed")
+}
+
+enum ShopCategory {
+  MANOR_DECORATION @map("manor_decoration")
+  MOOD_ITEM        @map("mood_item")
+  CAT_ACCESSORY    @map("cat_accessory")
+}
+
+enum Tone {
+  MANGO @map("mango")
+  MINT  @map("mint")
+  SKY   @map("sky")
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  openid       String?  @unique @db.VarChar(64)
+  nickname     String   @default("体验用户") @db.VarChar(50)
+  avatarUrl    String?  @map("avatar_url")
+  level        Int      @default(1)
+  xp           Int      @default(0)
+  fishCoin     Int      @default(0) @map("fish_coin")
+  intimacy     Int      @default(0)
+  activeSkinId String?  @map("active_skin_id") @db.Uuid
+  streakDays   Int      @default(0) @map("streak_days")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  preferences      UserPreferences?
+  goals            Goal[]
+  tasks            DailyTask[]
+  moodCheckins     MoodCheckin[]
+  moodSupportLogs  MoodSupportLog[]
+  habits           Habit[]
+  manorBuildings   ManorBuilding[]
+  shopItems        UserShopItem[]
+  evidenceRecords  EvidenceRecord[]
+  joinedActivities JoinedActivity[]
+  scenarioLogs     ScenarioPracticeLog[]
+  missionClaims    MissionClaim[]
+  chatMessages     ChatMessage[]
+  aiUsageLogs      AiUsageLog[]
+
+  @@map("users")
+}
+
+model UserPreferences {
+  userId        String     @id @map("user_id") @db.Uuid
+  motionEnabled Boolean    @default(true) @map("motion_enabled")
+  quietMode     Boolean    @default(false) @map("quiet_mode")
+  provider      AiProvider @default(MOCK)
+  darkMode      Boolean    @default(false) @map("dark_mode")
+  soundEnabled  Boolean    @default(true) @map("sound_enabled")
+  updatedAt     DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+model Goal {
+  id           String      @id @default(uuid()) @db.Uuid
+  userId       String      @map("user_id") @db.Uuid
+  title        String      @db.VarChar(100)
+  category     String?     @db.VarChar(30)
+  reason       String?
+  horizon      GoalHorizon @default(MONTH)
+  progress     Int         @default(0)
+  smartContent Json?       @map("smart_content")
+  deadline     DateTime?   @db.Date
+  status       GoalStatus  @default(ACTIVE)
+  createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tasks DailyTask[]
+
+  @@index([userId, status])
+  @@map("goals")
+}
+
+model DailyTask {
+  id            String      @id @default(uuid()) @db.Uuid
+  userId        String      @map("user_id") @db.Uuid
+  goalId        String?     @map("goal_id") @db.Uuid
+  title         String      @db.VarChar(120)
+  area          String      @db.VarChar(40)
+  energyLevel   EnergyLevel @map("energy_level")
+  isCompleted   Boolean     @default(false) @map("is_completed")
+  scheduledDate DateTime?   @map("scheduled_date") @db.Date
+  dueLabel      String?     @map("due_label") @db.VarChar(20)
+  completedAt   DateTime?   @map("completed_at") @db.Timestamptz(6)
+  sortOrder     Int         @default(0) @map("sort_order")
+  createdAt     DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goal Goal? @relation(fields: [goalId], references: [id], onDelete: SetNull)
+
+  @@index([userId, scheduledDate])
+  @@map("daily_tasks")
+}
+
+model MoodCheckin {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  moodType  String   @map("mood_type") @db.VarChar(20)
+  intensity Int
+  note      String?
+  aiAdvice  String?  @map("ai_advice")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("mood_checkins")
+}
+
+model MoodSupportLog {
+  id         String     @id @default(uuid()) @db.Uuid
+  userId     String     @map("user_id") @db.Uuid
+  actionId   String     @map("action_id") @db.VarChar(40)
+  title      String     @db.VarChar(80)
+  persona    CatPersona
+  rewardFish Int        @default(0) @map("reward_fish")
+  createdAt  DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("mood_support_logs")
+}
+
+model HabitTemplate {
+  id         String      @id @db.VarChar(60)
+  title      String      @db.VarChar(80)
+  area       String      @db.VarChar(40)
+  cue        String
+  tinyAction String      @map("tiny_action")
+  reward     String
+  energy     EnergyLevel
+  isActive   Boolean     @default(true) @map("is_active")
+
+  habits Habit[]
+
+  @@map("habit_templates")
+}
+
+model Habit {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("user_id") @db.Uuid
+  templateId    String?  @map("template_id") @db.VarChar(60)
+  name          String   @db.VarChar(80)
+  category      String   @db.VarChar(40)
+  targetDays    Int      @default(21) @map("target_days")
+  currentStreak Int      @default(0) @map("current_streak")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  template HabitTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  logs     HabitLog[]
+
+  @@index([userId])
+  @@map("habits")
+}
+
+model HabitLog {
+  id            String   @id @default(uuid()) @db.Uuid
+  habitId       String   @map("habit_id") @db.Uuid
+  completedDate DateTime @map("completed_date") @db.Date
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  habit Habit @relation(fields: [habitId], references: [id], onDelete: Cascade)
+
+  @@unique([habitId, completedDate])
+  @@map("habit_logs")
+}
+
+model ManorBuilding {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  buildingType String   @map("building_type") @db.VarChar(40)
+  level        Int      @default(1)
+  positionX    Float    @default(0) @map("position_x")
+  positionY    Float    @default(0) @map("position_y")
+  unlockedAt   DateTime @default(now()) @map("unlocked_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("manor_buildings")
+}
+
+model ShopItem {
+  id          String       @id @db.VarChar(60)
+  title       String       @db.VarChar(80)
+  description String
+  cost        Int
+  category    ShopCategory
+  effect      String
+  tone        Tone
+  assetPath   String?      @map("asset_path")
+  isActive    Boolean      @default(true) @map("is_active")
+
+  owners UserShopItem[]
+
+  @@map("shop_items")
+}
+
+model UserShopItem {
+  userId     String   @map("user_id") @db.Uuid
+  shopItemId String   @map("shop_item_id") @db.VarChar(60)
+  acquiredAt DateTime @default(now()) @map("acquired_at") @db.Timestamptz(6)
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shopItem ShopItem @relation(fields: [shopItemId], references: [id], onDelete: Cascade)
+
+  @@id([userId, shopItemId])
+  @@map("user_shop_items")
+}
+
+model ActivityChallenge {
+  id          String  @id @db.VarChar(60)
+  title       String  @db.VarChar(80)
+  area        String  @db.VarChar(40)
+  description String
+  tinyStep    String  @map("tiny_step")
+  duration    String  @db.VarChar(20)
+  rewardFish  Int     @default(0) @map("reward_fish")
+  tone        Tone
+  isActive    Boolean @default(true) @map("is_active")
+
+  joins JoinedActivity[]
+
+  @@map("activity_challenges")
+}
+
+model JoinedActivity {
+  userId     String   @map("user_id") @db.Uuid
+  activityId String   @map("activity_id") @db.VarChar(60)
+  joinedAt   DateTime @default(now()) @map("joined_at") @db.Timestamptz(6)
+
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activity ActivityChallenge @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@id([userId, activityId])
+  @@map("joined_activities")
+}
+
+model ScenarioPracticeLog {
+  id         String     @id @default(uuid()) @db.Uuid
+  userId     String     @map("user_id") @db.Uuid
+  practiceId String     @map("practice_id") @db.VarChar(60)
+  title      String     @db.VarChar(80)
+  firstLine  String     @map("first_line")
+  persona    CatPersona
+  rewardFish Int        @default(0) @map("reward_fish")
+  createdAt  DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("scenario_practice_logs")
+}
+
+model SpecialMission {
+  id          String  @id @db.VarChar(60)
+  title       String  @db.VarChar(80)
+  description String
+  target      Int
+  unit        String  @db.VarChar(20)
+  rewardLabel String  @map("reward_label") @db.VarChar(40)
+  rewardFish  Int     @default(0) @map("reward_fish")
+  tone        Tone
+  isActive    Boolean @default(true) @map("is_active")
+
+  claims MissionClaim[]
+
+  @@map("special_missions")
+}
+
+model MissionClaim {
+  userId    String   @map("user_id") @db.Uuid
+  missionId String   @map("mission_id") @db.VarChar(60)
+  claimedAt DateTime @default(now()) @map("claimed_at") @db.Timestamptz(6)
+
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mission SpecialMission @relation(fields: [missionId], references: [id], onDelete: Cascade)
+
+  @@id([userId, missionId])
+  @@map("mission_claims")
+}
+
+model EvidenceRecord {
+  id         String           @id @default(uuid()) @db.Uuid
+  userId     String           @map("user_id") @db.Uuid
+  title      String           @db.VarChar(120)
+  category   EvidenceCategory
+  note       String
+  sourceType String?          @map("source_type") @db.VarChar(40)
+  sourceId   String?          @map("source_id") @db.VarChar(80)
+  fishEarned Int              @default(0) @map("fish_earned")
+  createdAt  DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("evidence_records")
+}
+
+model ChatMessage {
+  id           String      @id @default(uuid()) @db.Uuid
+  userId       String      @map("user_id") @db.Uuid
+  role         String      @db.VarChar(12)
+  persona      CatPersona?
+  text         String
+  provider     AiProvider?
+  model        String?     @db.VarChar(40)
+  responseMode String?     @map("response_mode") @db.VarChar(20)
+  quotaTier    String?     @map("quota_tier") @db.VarChar(20)
+  createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([provider, model, createdAt])
+  @@map("chat_messages")
+}
+
+model AiUsageLog {
+  id           String     @id @default(uuid()) @db.Uuid
+  userId       String     @map("user_id") @db.Uuid
+  provider     AiProvider
+  model        String     @db.VarChar(40)
+  responseMode String     @map("response_mode") @db.VarChar(20)
+  quotaTier    String     @map("quota_tier") @db.VarChar(20)
+  status       String     @db.VarChar(20)
+  promptChars  Int        @default(0) @map("prompt_chars")
+  outputChars  Int        @default(0) @map("output_chars")
+  errorMessage String?    @map("error_message")
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, quotaTier, status, createdAt])
+  @@index([provider, model, createdAt])
+  @@map("ai_usage_logs")
+}
