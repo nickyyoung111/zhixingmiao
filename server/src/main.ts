@@ -9,12 +9,15 @@ import { AppModule } from './app.module.js'
 async function bootstrap() {
   const app = await NestFactory.create(AppModule)
   const config = app.get(ConfigService)
-  const frontendOrigin = config.get<string>('FRONTEND_ORIGIN') ?? 'http://localhost:5173'
+  const frontendOrigins = (config.get<string>('FRONTEND_ORIGIN') ?? 'http://localhost:5173')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean)
   const port = Number(config.get<string>('PORT') ?? config.get<string>('API_PORT') ?? 3001)
 
   app.setGlobalPrefix('api/v1')
   app.enableCors({
-    origin: frontendOrigin,
+    origin: frontendOrigins,
     credentials: true,
   })
   app.useGlobalPipes(
