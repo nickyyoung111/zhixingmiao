@@ -10,6 +10,8 @@
     "dev": "vite",
     "server:dev": "tsx watch --tsconfig tsconfig.server.json server/src/main.ts",
     "server:start": "tsx --tsconfig tsconfig.server.json server/src/main.ts",
+    "server:build": "tsc -p tsconfig.server.build.json",
+    "server:prod": "node dist-server/server/src/main.js",
     "server:check": "tsc -p tsconfig.server.json --noEmit",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
